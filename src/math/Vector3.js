@@ -314,12 +314,9 @@ Object.assign( Vector3.prototype, {
 
 	project: function () {
 
-		var matrix = new Matrix4();
-
 		return function project( camera ) {
 
-			matrix.multiplyMatrices( camera.projectionMatrix, matrix.getInverse( camera.matrixWorld ) );
-			return this.applyMatrix4( matrix );
+			return this.applyMatrix4( camera.projectionScreenMatrix );
 
 		};
 
@@ -331,7 +328,7 @@ Object.assign( Vector3.prototype, {
 
 		return function unproject( camera ) {
 
-			matrix.multiplyMatrices( camera.matrixWorld, matrix.getInverse( camera.projectionMatrix ) );
+			matrix.getInverse( camera.projectionScreenMatrix );
 			return this.applyMatrix4( matrix );
 
 		};

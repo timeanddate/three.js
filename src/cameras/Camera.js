@@ -17,7 +17,7 @@ function Camera() {
 
 	this.matrixWorldInverse = new Matrix4();
 	this.projectionMatrix = new Matrix4();
-
+	this.projectionScreenMatrix = new Matrix4();
 }
 
 Camera.prototype = Object.assign( Object.create( Object3D.prototype ), {
@@ -32,6 +32,7 @@ Camera.prototype = Object.assign( Object.create( Object3D.prototype ), {
 
 		this.matrixWorldInverse.copy( source.matrixWorldInverse );
 		this.projectionMatrix.copy( source.projectionMatrix );
+		this.projectionScreenMatrix.copy( source.projectionScreenMatrix );
 
 		return this;
 
@@ -63,6 +64,8 @@ Camera.prototype = Object.assign( Object.create( Object3D.prototype ), {
 		Object3D.prototype.updateMatrixWorld.call( this, force );
 
 		this.matrixWorldInverse.getInverse( this.matrixWorld );
+
+		this.projectionScreenMatrix.multiplyMatrices( this.projectionMatrix, this.matrixWorldInverse );
 
 	},
 
