@@ -18,6 +18,7 @@ function Camera() {
 	this.matrixWorldInverse = new Matrix4();
 	this.projectionMatrix = new Matrix4();
 	this.projectionScreenMatrix = new Matrix4();
+	
 }
 
 Camera.prototype = Object.assign( Object.create( Object3D.prototype ), {

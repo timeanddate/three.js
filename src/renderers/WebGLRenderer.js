@@ -115,10 +115,6 @@ function WebGLRenderer( parameters ) {
 	this.maxMorphTargets = 8;
 	this.maxMorphNormals = 4;
 
-	// frustum
-
-	this.frustum = new Frustum();
-
 	// internal properties
 
 	var _this = this,
@@ -155,6 +151,10 @@ function WebGLRenderer( parameters ) {
 		_viewport = new Vector4( 0, 0, _width, _height ),
 		_scissor = new Vector4( 0, 0, _width, _height ),
 		_scissorTest = false,
+
+		// frustum
+
+		_frustum = new Frustum(),
 
 		// clipping
 
@@ -491,6 +491,12 @@ function WebGLRenderer( parameters ) {
 		this.setRenderTarget( renderTarget );
 		this.clear( color, depth, stencil );
 
+	};
+
+	this.getFrustum = function () {
+
+		return _frustum;
+		
 	};
 
 	//
@@ -1082,7 +1088,7 @@ function WebGLRenderer( parameters ) {
 		scene.onBeforeRender( _this, scene, camera, renderTarget );
 
 		_projScreenMatrix.copy(camera.projectionScreenMatrix);
-		this.frustum.setFromMatrix( _projScreenMatrix );
+		_frustum.setFromMatrix( _projScreenMatrix );
 
 		_localClippingEnabled = this.localClippingEnabled;
 		_clippingEnabled = _clipping.init( this.clippingPlanes, _localClippingEnabled, camera );
@@ -1218,7 +1224,7 @@ function WebGLRenderer( parameters ) {
 
 	function isSphereViewable( sphere ) {
 
-		if ( ! _this.frustum.intersectsSphere( sphere ) ) return false;
+		if ( ! _frustum.intersectsSphere( sphere ) ) return false;
 
 		var numPlanes = _clipping.numPlanes;
 
@@ -1262,7 +1268,7 @@ function WebGLRenderer( parameters ) {
 
 			} else if ( object.isSprite ) {
 
-				if ( ! object.frustumCulled || _this.frustum.intersectsSprite( object ) ) {
+				if ( ! object.frustumCulled || _frustum.intersectsSprite( object ) ) {
 
 					currentRenderState.pushSprite( object );
 
@@ -1287,7 +1293,7 @@ function WebGLRenderer( parameters ) {
 
 				}
 
-				if ( ! object.frustumCulled || _this.frustum.intersectsObject( object ) ) {
+				if ( ! object.frustumCulled || _frustum.intersectsObject( object ) ) {
 
 					if ( sortObjects ) {
 

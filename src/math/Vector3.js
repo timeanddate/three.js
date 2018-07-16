@@ -312,15 +312,11 @@ Object.assign( Vector3.prototype, {
 
 	},
 
-	project: function () {
+	project: function ( camera ) {
 
-		return function project( camera ) {
+		return this.applyMatrix4( camera.projectionScreenMatrix );
 
-			return this.applyMatrix4( camera.projectionScreenMatrix );
-
-		};
-
-	}(),
+	},
 
 	unproject: function () {
 
