@@ -2843,18 +2843,11 @@ Object.assign( Vector3.prototype, {
 
 	},
 
-	project: function () {
+	project: function ( camera ) {
 
-		var matrix = new Matrix4();
+		return this.applyMatrix4( camera.projectionScreenMatrix );
 
-		return function project( camera ) {
-
-			matrix.multiplyMatrices( camera.projectionMatrix, matrix.getInverse( camera.matrixWorld ) );
-			return this.applyMatrix4( matrix );
-
-		};
-
-	}(),
+	},
 
 	unproject: function () {
 
@@ -2862,7 +2855,7 @@ Object.assign( Vector3.prototype, {
 
 		return function unproject( camera ) {
 
-			matrix.multiplyMatrices( camera.matrixWorld, matrix.getInverse( camera.projectionMatrix ) );
+			matrix.getInverse( camera.projectionScreenMatrix );
 			return this.applyMatrix4( matrix );
 
 		};
@@ -8840,7 +8833,8 @@ function Camera() {
 
 	this.matrixWorldInverse = new Matrix4();
 	this.projectionMatrix = new Matrix4();
-
+	this.projectionScreenMatrix = new Matrix4();
+	
 }
 
 Camera.prototype = Object.assign( Object.create( Object3D.prototype ), {
@@ -8855,6 +8849,7 @@ Camera.prototype = Object.assign( Object.create( Object3D.prototype ), {
 
 		this.matrixWorldInverse.copy( source.matrixWorldInverse );
 		this.projectionMatrix.copy( source.projectionMatrix );
+		this.projectionScreenMatrix.copy( source.projectionScreenMatrix );
 
 		return this;
 
@@ -8886,6 +8881,8 @@ Camera.prototype = Object.assign( Object.create( Object3D.prototype ), {
 		Object3D.prototype.updateMatrixWorld.call( this, force );
 
 		this.matrixWorldInverse.getInverse( this.matrixWorld );
+
+		this.projectionScreenMatrix.multiplyMatrices( this.projectionMatrix, this.matrixWorldInverse );
 
 	},
 
@@ -20892,16 +20889,13 @@ PerspectiveCamera.prototype = Object.assign( Object.create( Camera.prototype ), 
 	 */
 	getFocalLength: function () {
 
-		var vExtentSlope = Math.tan( _Math.DEG2RAD * 0.5 * this.fov );
-
-		return 0.5 * this.getFilmHeight() / vExtentSlope;
+		return 0.5 * this.getFilmHeight() / this.halfFOVTangent;
 
 	},
 
 	getEffectiveFOV: function () {
 
-		return _Math.RAD2DEG * 2 * Math.atan(
-			Math.tan( _Math.DEG2RAD * 0.5 * this.fov ) / this.zoom );
+		return _Math.RAD2DEG * 2 * Math.atan( this.halfFOVTangent / this.zoom );
 
 	},
 
@@ -20998,9 +20992,10 @@ PerspectiveCamera.prototype = Object.assign( Object.create( Camera.prototype ), 
 
 	updateProjectionMatrix: function () {
 
+		this.halfFOVTangent = Math.tan( _Math.DEG2RAD * 0.5 * this.fov );
+
 		var near = this.near,
-			top = near * Math.tan(
-				_Math.DEG2RAD * 0.5 * this.fov ) / this.zoom,
+			top = near * this.halfFOVTangent / this.zoom,
 			height = 2 * top,
 			width = this.aspect * height,
 			left = - 0.5 * width,
@@ -22172,6 +22167,12 @@ function WebGLRenderer( parameters ) {
 
 	};
 
+	this.getFrustum = function () {
+
+		return _frustum;
+		
+	};
+
 	//
 
 	this.dispose = function () {
@@ -22736,7 +22737,7 @@ function WebGLRenderer( parameters ) {
 
 		scene.onBeforeRender( _this, scene, camera, renderTarget );
 
-		_projScreenMatrix.multiplyMatrices( camera.projectionMatrix, camera.matrixWorldInverse );
+		_projScreenMatrix.copy(camera.projectionScreenMatrix);
 		_frustum.setFromMatrix( _projScreenMatrix );
 
 		_localClippingEnabled = this.localClippingEnabled;
