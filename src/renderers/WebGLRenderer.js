@@ -16,7 +16,7 @@ import { Frustum } from '../math/Frustum.js';
 import { Matrix4 } from '../math/Matrix4.js';
 import { ShaderLib } from './shaders/ShaderLib.js';
 import { UniformsLib } from './shaders/UniformsLib.js';
-import { UniformsUtils } from './shaders/UniformsUtils.js';
+import { cloneUniforms } from './shaders/UniformsUtils.js';
 import { Vector3 } from '../math/Vector3.js';
 import { Vector4 } from '../math/Vector4.js';
 import { WebGLAnimation } from './webgl/WebGLAnimation.js';
@@ -300,7 +300,13 @@ function WebGLRenderer( parameters ) {
 
 	// vr
 
-	var vr = ( 'xr' in navigator ) ? new WebXRManager( _this ) : new WebVRManager( _this );
+	var vr = null;
+
+	if ( typeof navigator !== 'undefined' ) {
+
+		vr = ( 'xr' in navigator ) ? new WebXRManager( _this ) : new WebVRManager( _this );
+
+	}
 
 	this.vr = vr;
 
@@ -491,13 +497,6 @@ function WebGLRenderer( parameters ) {
 	this.clearStencil = function () {
 
 		this.clear( false, false, true );
-
-	};
-
-	this.clearTarget = function ( renderTarget, color, depth, stencil ) {
-
-		this.setRenderTarget( renderTarget );
-		this.clear( color, depth, stencil );
 
 	};
 
@@ -1171,61 +1170,6 @@ function WebGLRenderer( parameters ) {
 
 	};
 
-	/*
-	// TODO Duplicated code (Frustum)
-
-	var _sphere = new Sphere();
-
-	function isObjectViewable( object ) {
-
-		var geometry = object.geometry;
-
-		if ( geometry.boundingSphere === null )
-			geometry.computeBoundingSphere();
-
-		_sphere.copy( geometry.boundingSphere ).
-		applyMatrix4( object.matrixWorld );
-
-		return isSphereViewable( _sphere );
-
-	}
-
-	function isSpriteViewable( sprite ) {
-
-		_sphere.center.set( 0, 0, 0 );
-		_sphere.radius = 0.7071067811865476;
-		_sphere.applyMatrix4( sprite.matrixWorld );
-
-		return isSphereViewable( _sphere );
-
-	}
-
-	function isSphereViewable( sphere ) {
-
-		if ( ! _frustum.intersectsSphere( sphere ) ) return false;
-
-		var numPlanes = _clipping.numPlanes;
-
-		if ( numPlanes === 0 ) return true;
-
-		var planes = _this.clippingPlanes,
-
-			center = sphere.center,
-			negRad = - sphere.radius,
-			i = 0;
-
-		do {
-
-			// out when deeper than radius in the negative halfspace
-			if ( planes[ i ].distanceToPoint( center ) < negRad ) return false;
-
-		} while ( ++ i !== numPlanes );
-
-		return true;
-
-	}
-	*/
-
 	function projectObject( object, camera, sortObjects ) {
 
 		if ( object.visible === false ) return;
@@ -1372,6 +1316,8 @@ function WebGLRenderer( parameters ) {
 
 						}
 
+						currentRenderState.setupLights( camera2 );
+
 						renderObject( object, scene, camera2, geometry, material, group );
 
 					}
@@ -1487,7 +1433,7 @@ function WebGLRenderer( parameters ) {
 
 				materialProperties.shader = {
 					name: material.type,
-					uniforms: UniformsUtils.clone( shader.uniforms ),
+					uniforms: cloneUniforms( shader.uniforms ),
 					vertexShader: shader.vertexShader,
 					fragmentShader: shader.fragmentShader
 				};
@@ -1697,7 +1643,7 @@ function WebGLRenderer( parameters ) {
 
 		}
 
-		if ( refreshProgram || camera !== _currentCamera ) {
+		if ( refreshProgram || _currentCamera !== camera ) {
 
 			p_uniforms.setValue( _gl, 'projectionMatrix', camera.projectionMatrix );
 
@@ -1708,11 +1654,9 @@ function WebGLRenderer( parameters ) {
 
 			}
 
-			// Avoid unneeded uniform updates per ArrayCamera's sub-camera
+			if ( _currentCamera !== camera ) {
 
-			if ( _currentCamera !== ( _currentArrayCamera || camera ) ) {
-
-				_currentCamera = ( _currentArrayCamera || camera );
+				_currentCamera = camera;
 
 				// lighting uniforms depend on the camera so enforce an update
 				// now, in case this material supports lights - or later, when
@@ -1876,6 +1820,12 @@ function WebGLRenderer( parameters ) {
 
 				}
 
+			} else if ( material.isMeshMatcapMaterial ) {
+
+				refreshUniformsCommon( m_uniforms, material );
+
+				refreshUniformsMatcap( m_uniforms, material );
+
 			} else if ( material.isMeshDepthMaterial ) {
 
 				refreshUniformsCommon( m_uniforms, material );
@@ -1993,7 +1943,7 @@ function WebGLRenderer( parameters ) {
 			//  WebGLRenderTargetCube will be flipped for backwards compatibility
 			//  WebGLRenderTargetCube.texture will be flipped because it's a Texture and NOT a CubeTexture
 			// this check must be handled differently, or removed entirely, if WebGLRenderTargetCube uses a CubeTexture in the future
-			uniforms.flipEnvMap.value = ( ! ( material.envMap && material.envMap.isCubeTexture ) ) ? 1 : - 1;
+			uniforms.flipEnvMap.value = material.envMap.isCubeTexture ? - 1 : 1;
 
 			uniforms.reflectivity.value = material.reflectivity;
 			uniforms.refractionRatio.value = material.refractionRatio;
@@ -2287,6 +2237,40 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	function refreshUniformsMatcap( uniforms, material ) {
+
+		if ( material.matcap ) {
+
+			uniforms.matcap.value = material.matcap;
+
+		}
+
+		if ( material.bumpMap ) {
+
+			uniforms.bumpMap.value = material.bumpMap;
+			uniforms.bumpScale.value = material.bumpScale;
+			if ( material.side === BackSide ) uniforms.bumpScale.value *= - 1;
+
+		}
+
+		if ( material.normalMap ) {
+
+			uniforms.normalMap.value = material.normalMap;
+			uniforms.normalScale.value.copy( material.normalScale );
+			if ( material.side === BackSide ) uniforms.normalScale.value.negate();
+
+		}
+
+		if ( material.displacementMap ) {
+
+			uniforms.displacementMap.value = material.displacementMap;
+			uniforms.displacementScale.value = material.displacementScale;
+			uniforms.displacementBias.value = material.displacementBias;
+
+		}
+
+	}
+
 	function refreshUniformsDepth( uniforms, material ) {
 
 		if ( material.displacementMap ) {
@@ -2399,6 +2383,17 @@ function WebGLRenderer( parameters ) {
 			}
 
 			textures.setTexture2D( texture, slot );
+
+		};
+
+	}() );
+
+	this.setTexture3D = ( function () {
+
+		// backwards compatibility: peel texture.texture
+		return function setTexture3D( texture, slot ) {
+
+			textures.setTexture3D( texture, slot );
 
 		};
 
